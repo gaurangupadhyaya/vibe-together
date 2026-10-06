@@ -2,8 +2,11 @@
    VIBE TOGETHER - LIVE CHAT & API INTEGRATED FRONTEND
    ===================================================== */
 
-// Auto-detect API Base URL so it works seamlessly even if opened via VS Code Live Server (port 5500)
-const API_BASE = (window.location.port !== '3000') ? 'http://localhost:3000' : '';
+// Auto-detect API Base URL so it works seamlessly locally, in VS Code Live Server, and on deployed Render cloud
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+const API_BASE = isLocal 
+    ? (window.location.port === '3000' ? '' : 'http://localhost:3000')
+    : '';
 
 let user = {
     name: "Gaurang",
