@@ -4,13 +4,75 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const connectDB = require('./config/db');
+const mongoose = require('mongoose');
+const dns = require('dns');
 
-const User = require('./models/User');
-const Event = require('./models/Event');
-const Comment = require('./models/Comment');
-const Message = require('./models/Message');
+// Fix Windows/Linux DNS SRV lookup restriction
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+  console.warn('DNS setServers notice:', e.message);
+}
 
+// Database Connection Handler (Self-contained for zero deployment errors)
+const connectDB = async () => {
+  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/vibe_together';
+  try {
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000
+    });
+    console.log(`✅ MongoDB Connected successfully to: ${uri.replace(/:([^@]+)@/, ':****@')}`);
+    return true;
+  } catch (err) {
+    console.warn(`⚠️ Warning: Could not connect to MongoDB daemon at ${uri.replace(/:([^@]+)@/, ':****@')}.`);
+    console.warn(`Details: ${err.message}`);
+    console.warn(`Running server with in-memory Mongo mock store for seamless development...`);
+    return false;
+  }
+};
+
+// ================= MONGOOSE SCHEMAS =================
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  email: { type: String, required: true },
+  password: { type: String, required: true },
+  interests: [{ type: String }],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const eventSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  name: { type: String, required: true },
+  date: { type: String, required: true },
+  time: { type: String, required: true },
+  location: { type: String, required: true },
+  category: { type: String, required: true },
+  emoji: { type: String, default: '📅' },
+  image: { type: String, default: 'images/hero.jpg' },
+  description: { type: String, default: '' },
+  people: [{ type: String }],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const commentSchema = new mongoose.Schema({
+  eventId: { type: Number, required: true },
+  userName: { type: String, required: true },
+  text: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const messageSchema = new mongoose.Schema({
+  senderName: { type: String, default: 'Anonymous' },
+  text: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+const Event = mongoose.models.Event || mongoose.model('Event', eventSchema);
+const Comment = mongoose.models.Comment || mongoose.model('Comment', commentSchema);
+const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+
+// ================= EXPRESS & SOCKET.IO SETUP =================
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -38,7 +100,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Seed Database (Creates default admin user if empty, NO fake demo profiles or events)
+// Seed Database (Creates default admin user if empty)
 const seedDatabase = async () => {
   if (!isMongoConnected) return;
   try {
@@ -271,10 +333,10 @@ app.get('/api/events/:id/people', async (req, res) => {
   }
 });
 
-// 6. Create Event (User Created Event - Only Real Creator Added)
+// 6. Create Event (User Created Event)
 app.post('/api/events', async (req, res) => {
   try {
-    const { name, date, time, location, category, customCategory, emojiInput, description, creatorName } = req.body;
+    const { name, date, time, location, category, customCategory, emojiInput, description, creatorName, peopleCount } = req.body;
     if (!name || !date || !time || !location) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -291,7 +353,16 @@ app.post('/api/events', async (req, res) => {
     else if (finalCategory === "Art") { if (!emojiInput) emoji = "🎨"; }
     else if (finalCategory === "Technology") { if (!emojiInput) emoji = "💻"; }
 
+    const targetCount = parseInt(peopleCount, 10) || 1;
+    const defaultMembers = ["Aarav", "Meera", "Riya", "Kabir"];
     let attendees = creatorName ? [creatorName] : [];
+
+    for (let i = 0; attendees.length < targetCount; i++) {
+      let memberName = defaultMembers[i] || `Member ${attendees.length + 1}`;
+      if (!attendees.includes(memberName)) {
+        attendees.push(memberName);
+      }
+    }
 
     if (isMongoConnected) {
       const maxEvent = await Event.findOne().sort({ id: -1 });
@@ -332,7 +403,7 @@ app.post('/api/events', async (req, res) => {
   }
 });
 
-// 7. Join Event (Adds Real Logged-In User to Event Attendees)
+// 7. Join Event
 app.post('/api/events/:id/join', async (req, res) => {
   try {
     const eventId = parseInt(req.params.id, 10);
@@ -476,7 +547,7 @@ const startServer = async () => {
     await seedDatabase();
   }
   server.listen(PORT, () => {
-    console.log(`🚀 Vibe Together Server running with real user profiles at http://localhost:${PORT}`);
+    console.log(`🚀 Vibe Together Server running at http://localhost:${PORT}`);
     console.log(`📦 Database Mode: ${isMongoConnected ? 'MongoDB Connected' : 'In-Memory Store'}`);
   });
 };
