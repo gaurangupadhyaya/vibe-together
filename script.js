@@ -77,7 +77,7 @@ async function loadCategories() {
 
             let optionsHTML = `<option value="All">All Categories</option>`;
             categories.forEach(c => {
-                optionsHTML += `<option value="${c.name}">${c.emoji} ${c.name}</option>`;
+                optionsHTML += `<option value="${c.name}">${c.name}</option>`;
             });
 
             categoryFilterSelect.innerHTML = optionsHTML;
@@ -224,7 +224,7 @@ async function displayEvents() {
                         style="background-image: url('${event.image}');"
                     >
                         <span class="category">
-                            ${event.emoji} ${event.category}
+                            ${event.category}
                         </span>
                     </div>
 
@@ -314,9 +314,7 @@ async function openEvent(id) {
                     style="
                         background-image: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.30)), url('${event.image}');
                     "
-                >
-                    ${event.emoji}
-                </div>
+                ></div>
 
                 <h1>${event.name}</h1>
 
@@ -465,7 +463,7 @@ async function showPeople(id) {
 
                 <div class="people-title">
                     <span>EVENT COMMUNITY</span>
-                    <h1>${event.emoji} ${event.name}</h1>
+                    <h1>${event.name}</h1>
                     <p>${event.date} • ${event.time} • ${event.location}</p>
                 </div>
 
