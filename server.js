@@ -6,6 +6,8 @@ const cors = require('cors');
 const path = require('path');
 const mongoose = require('mongoose');
 const dns = require('dns');
+const fs = require('fs');
+const embeddedImages = require('./embedded_images');
 
 // Fix Windows/Linux DNS SRV lookup restriction
 try {
@@ -98,6 +100,42 @@ const inMemory = {
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve images with base64 embedded fallback for Render cloud deployment
+app.get('/images/:name', (req, res) => {
+  const imageName = req.params.name;
+  const imagePath = path.join(__dirname, 'images', imageName);
+
+  if (fs.existsSync(imagePath)) {
+    return res.sendFile(imagePath);
+  }
+
+  let base64Data = null;
+  let contentType = imageName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+  if (imageName.includes('hero') || imageName.includes('back') || imageName.includes('semi')) {
+    base64Data = embeddedImages.heroBg;
+  } else if (embeddedImages.pageBg) {
+    base64Data = embeddedImages.pageBg;
+  }
+
+  if (base64Data) {
+    const imgBuffer = Buffer.from(base64Data, 'base64');
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Content-Length': imgBuffer.length
+    });
+    return res.end(imgBuffer);
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+    <rect width="800" height="400" fill="#FF7E5F"/>
+    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="36" fill="#FFFFFF" font-weight="bold">Vibe Together 🎉</text>
+  </svg>`;
+  res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+  return res.end(svg);
+});
+
 app.use(express.static(path.join(__dirname)));
 
 // Seed Database (Creates default admin user if empty)
