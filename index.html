@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Vibe Together</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+
+<body>
+
+
+<!-- ================= NAVBAR ================= -->
+
+<nav class="navbar">
+
+
+    <div class="logo">
+
+        <div class="logo-icon">
+            VT
+        </div>
+
+        <div class="logo-text">
+
+            <h2>Vibe Together</h2>
+
+            <small>
+                Find people. Share moments.
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <div class="nav-links">
+
+        <button onclick="showPage('home')">
+            <i class="fa-solid fa-house"></i>
+            Home
+        </button>
+
+
+        <button onclick="showPage('events')">
+            <i class="fa-solid fa-calendar-days"></i>
+            Events
+        </button>
+
+
+        <button onclick="showPage('create')">
+            <i class="fa-solid fa-plus"></i>
+            Create Event
+        </button>
+
+
+        <button onclick="showPage('profile')">
+            <i class="fa-solid fa-user"></i>
+            Profile
+        </button>
+
+
+        <button onclick="showPage('login')">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            Login
+        </button>
+
+    </div>
+
+
+</nav>
+
+
+
+<main>
+
+
+<!-- ================= HOME ================= -->
+
+<section id="home" class="page active">
+
+
+    <div class="hero">
+
+
+        <div class="hero-content">
+
+
+            <span class="hero-tag">
+
+                <i class="fa-solid fa-users"></i>
+
+                GO TOGETHER, NOT ALONE
+
+            </span>
+
+
+            <h1>
+
+                Find people.
+                <br>
+
+                Find events.
+                <br>
+
+                <span>Vibe together.</span>
+
+            </h1>
+
+
+            <p>
+
+                Discover events happening around your city
+                and meet people who are going too.
+
+            </p>
+
+
+            <div class="hero-buttons">
+
+
+                <button
+                    class="main-btn"
+                    onclick="showPage('events')">
+
+                    Explore Events
+
+                    <i class="fa-solid fa-arrow-right"></i>
+
+                </button>
+
+
+                <button
+                    class="outline-btn"
+                    onclick="showPage('create')">
+
+                    <i class="fa-solid fa-plus"></i>
+
+                    Create Event
+
+                </button>
+
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- HOME IMAGE -->
+
+        <div class="hero-image">
+
+
+            <div class="hero-image-content">
+
+                <span>
+
+                    <i class="fa-solid fa-location-dot"></i>
+
+                    Discover your city
+
+                </span>
+
+
+                <h3>
+                    
+                    Your next adventure
+                    starts here.
+                </h3>
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+
+
+
+    <div class="section-title">
+
+        <span>
+            HOW IT WORKS
+        </span>
+
+        <h2>
+            Find your people in 3 simple steps
+        </h2>
+
+        <p>
+            Vibe Together makes it easier to enjoy
+            events with others.
+        </p>
+
+    </div>
+
+
+
+    <div class="features">
+
+
+        <div class="feature">
+
+            <div class="feature-icon">
+
+                <i class="fa-solid fa-magnifying-glass"></i>
+
+            </div>
+
+            <h3>
+                Discover
+            </h3>
+
+            <p>
+                Find interesting events happening
+                around your city.
+            </p>
+
+        </div>
+
+
+
+        <div class="feature">
+
+            <div class="feature-icon">
+
+                <i class="fa-solid fa-user-group"></i>
+
+            </div>
+
+            <h3>
+                Join
+            </h3>
+
+            <p>
+                See who is going and join people
+                with similar interests.
+            </p>
+
+        </div>
+
+
+
+        <div class="feature">
+
+            <div class="feature-icon">
+
+                <i class="fa-solid fa-comments"></i>
+
+            </div>
+
+            <h3>
+                Connect
+            </h3>
+
+            <p>
+                Discuss the event and chat with
+                your event group.
+            </p>
+
+        </div>
+
+
+    </div>
+
+
+</section>
+
+
+
+<!-- ================= LOGIN ================= -->
+
+<section id="login" class="page">
+
+
+    <div class="form-card login-card">
+
+
+        <div class="form-icon">
+
+            <i class="fa-solid fa-user"></i>
+
+        </div>
+
+
+        <h2>
+            Welcome to Vibe Together
+        </h2>
+
+
+        <p>
+            Login and start discovering events.
+        </p>
+
+
+        <label>
+            Name
+        </label>
+
+
+        <div class="input-box">
+
+            <i class="fa-solid fa-user"></i>
+
+            <input
+                id="loginName"
+                type="text"
+                placeholder="Enter your name">
+
+        </div>
+
+
+        <label>
+            Email
+        </label>
+
+
+        <div class="input-box">
+
+            <i class="fa-solid fa-envelope"></i>
+
+            <input
+                id="loginEmail"
+                type="email"
+                placeholder="Enter email">
+
+        </div>
+
+
+        <label>
+            Password
+        </label>
+
+
+        <div class="input-box">
+
+            <i class="fa-solid fa-lock"></i>
+
+            <input
+                id="loginPassword"
+                type="password"
+                placeholder="Enter password">
+
+        </div>
+
+
+        <button
+            class="main-btn full-btn"
+            onclick="login()">
+
+            <i class="fa-solid fa-right-to-bracket"></i>
+
+            Login
+
+        </button>
+
+
+        <p id="loginMessage"></p>
+
+
+    </div>
+
+
+</section>
+
+
+
+<!-- ================= EVENTS ================= -->
+
+<section id="events" class="page">
+
+
+    <div class="page-heading">
+
+
+        <div>
+
+            <span>
+                DISCOVER
+            </span>
+
+            <h2>
+                Events Around You
+            </h2>
+
+            <p>
+                See what people are doing around the city.
+            </p>
+
+        </div>
+
+
+        <button
+            class="main-btn"
+            onclick="showPage('create')">
+
+            <i class="fa-solid fa-plus"></i>
+
+            Create Event
+
+        </button>
+
+
+    </div>
+
+
+
+    <!-- SEARCH -->
+
+    <div class="search">
+
+
+        <div class="search-input">
+
+            <i class="fa-solid fa-magnifying-glass"></i>
+
+            <input
+                id="search"
+                type="text"
+                placeholder="Search events, places or activities..."
+                onkeyup="displayEvents()">
+
+        </div>
+
+
+        <select
+            id="category"
+            onchange="displayEvents()">
+
+
+            <option value="All">
+                All Categories
+            </option>
+
+
+            <option value="Music">
+                🎵 Music
+            </option>
+
+
+            <option value="Food">
+                🍔 Food
+            </option>
+
+
+            <option value="Sports">
+                ⚽ Sports
+            </option>
+
+
+            <option value="Technology">
+                💻 Technology
+            </option>
+
+
+            <option value="Movies">
+                🎬 Movies
+            </option>
+
+
+            <option value="Art">
+                🎨 Art
+            </option>
+
+
+        </select>
+
+
+    </div>
+
+
+
+    <!-- EVENTS -->
+
+    <div
+        id="eventList"
+        class="event-grid">
+
+    </div>
+
+
+</section>
+
+
+
+<!-- ================= EVENT DETAILS ================= -->
+
+<section id="eventDetails" class="page">
+
+    <div id="eventDetailsBox"></div>
+
+</section>
+
+
+
+<!-- ================= CREATE EVENT ================= -->
+
+<section id="create" class="page">
+
+
+    <div class="form-card large-form">
+
+
+        <div class="form-icon">
+
+            <i class="fa-solid fa-calendar-plus"></i>
+
+        </div>
+
+
+        <h2>
+            Create an Event ✨
+        </h2>
+
+
+        <p>
+            Create something interesting for people to join.
+        </p>
+
+
+        <label>
+            Event Name
+        </label>
+
+
+        <input
+            id="eventName"
+            type="text"
+            placeholder="Example: College Music Night">
+
+
+
+        <div class="form-row">
+
+
+            <div>
+
+                <label>
+                    Date
+                </label>
+
+                <input
+                    id="eventDate"
+                    type="date">
+
+            </div>
+
+
+            <div>
+
+                <label>
+                    Time
+                </label>
+
+                <input
+                    id="eventTime"
+                    type="time">
+
+            </div>
+
+
+        </div>
+
+
+
+        <label>
+            Location
+        </label>
+
+
+        <div class="input-box">
+
+            <i class="fa-solid fa-location-dot"></i>
+
+            <input
+                id="eventLocation"
+                type="text"
+                placeholder="Example: City Mall">
+
+        </div>
+
+
+
+        <label>
+            Category
+        </label>
+
+
+        <select id="eventCategory" onchange="checkCustomCategory()">
+
+
+            <option value="Music">
+                🎵 Music
+            </option>
+
+
+            <option value="Food">
+                🍔 Food
+            </option>
+
+
+            <option value="Sports">
+                ⚽ Sports
+            </option>
+
+
+            <option value="Technology">
+                💻 Technology
+            </option>
+
+
+            <option value="Movies">
+                🎬 Movies
+            </option>
+
+
+            <option value="Art">
+                🎨 Art
+            </option>
+
+
+            <option value="Custom">
+                ✨ + Add Custom Category...
+            </option>
+
+
+        </select>
+
+
+        <div id="customCategoryBox" style="display: none; margin-top: 15px;">
+
+            <label>Custom Category Name</label>
+
+            <input
+                id="customCategoryName"
+                type="text"
+                placeholder="Example: Gaming, Fitness, Dance">
+
+
+            <label style="margin-top: 10px;">Category Emoji (Optional)</label>
+
+            <input
+                id="customCategoryEmoji"
+                type="text"
+                placeholder="Example: 🎮 or 🚴 (Default: 📅)">
+
+        </div>
+
+
+
+        <label>
+            People Going / Attendees Count
+        </label>
+
+
+        <div class="input-box">
+
+            <i class="fa-solid fa-users"></i>
+
+            <input
+                id="eventPeopleCount"
+                type="number"
+                min="1"
+                value="1"
+                placeholder="Example: 5">
+
+        </div>
+
+
+
+        <label>
+            Description
+        </label>
+
+
+        <textarea
+            id="eventDescription"
+            placeholder="Tell people about your event"></textarea>
+
+
+
+        <button
+            class="main-btn full-btn"
+            onclick="createNewEvent()">
+
+            <i class="fa-solid fa-calendar-plus"></i>
+
+            Create Event
+
+        </button>
+
+
+    </div>
+
+
+</section>
+
+
+
+<!-- ================= PEOPLE ================= -->
+
+<section id="people" class="page">
+
+    <div id="peopleBox"></div>
+
+</section>
+
+
+
+<!-- ================= CHAT ================= -->
+
+<section id="chat" class="page">
+
+
+    <div class="chat-container">
+
+
+        <div class="chat-heading">
+
+
+            <div class="chat-avatar">
+
+                <i class="fa-solid fa-users"></i>
+
+            </div>
+
+
+            <div>
+
+                <h2>
+                    Event Group Chat 💬
+                </h2>
+
+                <p>
+                    Talk with people going to the event.
+                </p>
+
+            </div>
+
+
+        </div>
+
+
+
+        <div
+            id="chatMessages"
+            class="chat-messages">
+
+        </div>
+
+        <div id="typingIndicator" style="font-size: 11px; color: #d05040; padding: 4px 18px; min-height: 20px; font-style: italic;"></div>
+
+        <div class="chat-input">
+
+
+            <input
+                id="chatInput"
+                placeholder="Write a message..."
+                oninput="handleTyping()"
+                onkeyup="checkEnter(event)">
+
+
+            <button
+                class="send-btn"
+                onclick="sendMessage()">
+
+                <i class="fa-solid fa-paper-plane"></i>
+
+            </button>
+
+
+        </div>
+
+
+    </div>
+
+
+</section>
+
+
+
+<!-- ================= PROFILE ================= -->
+
+<section id="profile" class="page">
+
+
+    <div class="profile">
+
+
+        <div class="profile-card profile-header">
+
+
+            <div class="avatar" id="avatarLetter">
+                G
+            </div>
+
+
+            <div>
+
+                <h2 id="profileName">
+                    Gaurang
+                </h2>
+
+
+                <p>
+                    Vibe Together Member
+                </p>
+
+
+                <p>
+
+                    <i class="fa-solid fa-location-dot"></i>
+
+                    Your City
+
+                </p>
+
+            </div>
+
+
+        </div>
+
+
+
+        <div class="profile-card">
+
+
+            <h3>
+
+                <i class="fa-solid fa-heart"></i>
+
+                My Interests
+
+            </h3>
+
+
+            <p class="profile-description">
+
+                Select interests to help you find
+                people with similar vibes.
+
+            </p>
+
+
+            <div
+                id="interestList"
+                class="interests">
+
+            </div>
+
+
+            <button
+                class="main-btn"
+                onclick="saveInterests()">
+
+                <i class="fa-solid fa-check"></i>
+
+                Save Interests
+
+            </button>
+
+
+        </div>
+
+
+    </div>
+
+
+</section>
+
+
+</main>
+
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="script.js"></script>
+
+</body>
+
+</html>
