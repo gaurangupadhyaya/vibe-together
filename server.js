@@ -106,34 +106,29 @@ const inMemory = {
 app.use(cors());
 app.use(express.json());
 
-// Serve images with base64/SVG fallback for Render cloud deployment
+// Serve images with disk check first, then exact base64 real image, then SVG fallback
 app.get('/images/:name', (req, res) => {
   const rawName = req.params.name || '';
   const imageName = rawName.toLowerCase();
   const imagePath = path.join(__dirname, 'images', rawName);
 
-  // 1. Physical disk file check
+  // 1. Physical disk file check (if images/ folder exists)
   if (fs.existsSync(imagePath)) {
     return res.sendFile(imagePath);
   }
 
-  // 2. Embedded base64 check if loaded
-  let base64Data = null;
-  let contentType = imageName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-
-  if (imageName.includes('hero') || imageName.includes('back') || imageName.includes('semi') || imageName.includes('background')) {
-    base64Data = embeddedImages.heroBg || embeddedImages.pageBg;
-  } else if (embeddedImages.pageBg) {
-    base64Data = embeddedImages.pageBg;
-  }
-
-  if (base64Data) {
-    const imgBuffer = Buffer.from(base64Data, 'base64');
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Content-Length': imgBuffer.length
-    });
-    return res.end(imgBuffer);
+  // 2. Exact Real Image base64 fallback from embedded_images.js
+  if (typeof embeddedImages.getImageBase64 === 'function') {
+    const base64Data = embeddedImages.getImageBase64(rawName);
+    if (base64Data) {
+      const contentType = imageName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      const imgBuffer = Buffer.from(base64Data, 'base64');
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': imgBuffer.length
+      });
+      return res.end(imgBuffer);
+    }
   }
 
   // 3. Branded SVG Vector fallback
