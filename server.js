@@ -7,7 +7,12 @@ const path = require('path');
 const mongoose = require('mongoose');
 const dns = require('dns');
 const fs = require('fs');
-const embeddedImages = require('./embedded_images');
+let embeddedImages = {};
+try {
+  embeddedImages = require('./embedded_images');
+} catch (e) {
+  console.log('Notice: ./embedded_images.js not present, using SVG vector fallbacks.');
+}
 
 // Fix Windows/Linux DNS SRV lookup restriction
 try {
@@ -101,20 +106,23 @@ const inMemory = {
 app.use(cors());
 app.use(express.json());
 
-// Serve images with base64 embedded fallback for Render cloud deployment
+// Serve images with base64/SVG fallback for Render cloud deployment
 app.get('/images/:name', (req, res) => {
-  const imageName = req.params.name;
-  const imagePath = path.join(__dirname, 'images', imageName);
+  const rawName = req.params.name || '';
+  const imageName = rawName.toLowerCase();
+  const imagePath = path.join(__dirname, 'images', rawName);
 
+  // 1. Physical disk file check
   if (fs.existsSync(imagePath)) {
     return res.sendFile(imagePath);
   }
 
+  // 2. Embedded base64 check if loaded
   let base64Data = null;
   let contentType = imageName.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-  if (imageName.includes('hero') || imageName.includes('back') || imageName.includes('semi')) {
-    base64Data = embeddedImages.heroBg;
+  if (imageName.includes('hero') || imageName.includes('back') || imageName.includes('semi') || imageName.includes('background')) {
+    base64Data = embeddedImages.heroBg || embeddedImages.pageBg;
   } else if (embeddedImages.pageBg) {
     base64Data = embeddedImages.pageBg;
   }
@@ -128,9 +136,24 @@ app.get('/images/:name', (req, res) => {
     return res.end(imgBuffer);
   }
 
+  // 3. Branded SVG Vector fallback
+  let title = "Vibe Together 🎉";
+  if (imageName.includes('music')) title = "🎵 Music & Live Beats";
+  else if (imageName.includes('food')) title = "🍔 Food & Boba Meetup";
+  else if (imageName.includes('sports')) title = "⚽ Sports & Fitness";
+  else if (imageName.includes('movie')) title = "🎬 Movie & Film Night";
+  else if (imageName.includes('art')) title = "🎨 Art & Design Workshop";
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
-    <rect width="800" height="400" fill="#FF7E5F"/>
-    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="36" fill="#FFFFFF" font-weight="bold">Vibe Together 🎉</text>
+    <defs>
+      <linearGradient id="vibeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#FF7E5F;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#FEB47B;stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <rect width="800" height="400" fill="url(#vibeGrad)"/>
+    <circle cx="400" cy="200" r="140" fill="rgba(255,255,255,0.12)"/>
+    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="34" fill="#FFFFFF" font-weight="bold">${title}</text>
   </svg>`;
   res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
   return res.end(svg);
