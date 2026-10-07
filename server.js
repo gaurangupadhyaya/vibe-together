@@ -156,7 +156,7 @@ app.get('/images/:name', (req, res) => {
 
 app.use(express.static(path.join(__dirname)));
 
-// Seed Database (Creates default admin user if empty)
+// Seed Database & Cleanup Fake Users
 const seedDatabase = async () => {
   if (!isMongoConnected) return;
   try {
@@ -165,6 +165,26 @@ const seedDatabase = async () => {
       await User.insertMany(inMemory.users);
       console.log('Database initialized successfully with real user accounts!');
     }
+
+    // Clean up any legacy fake/dummy names ("Aarav", "Meera", "Riya", "Kabir", "Member...") from database events
+    const dummyNames = ["aarav", "meera", "riya", "kabir"];
+    const events = await Event.find({});
+    for (let ev of events) {
+      if (Array.isArray(ev.people)) {
+        const cleaned = ev.people.filter(p => {
+          if (!p) return false;
+          const lower = p.trim().toLowerCase();
+          if (dummyNames.includes(lower)) return false;
+          if (lower.startsWith("member ")) return false;
+          return true;
+        });
+        if (cleaned.length !== ev.people.length) {
+          ev.people = cleaned;
+          await ev.save();
+        }
+      }
+    }
+    console.log('🧹 Database cleaned: Zero fake users in event attendee lists!');
   } catch (err) {
     console.error('Error initializing database:', err);
   }
@@ -424,13 +444,25 @@ app.get('/api/events/:id/people', async (req, res) => {
 
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
+    // Filter out any legacy dummy/fake pre-populated user names
+    const dummyNames = ["aarav", "meera", "riya", "kabir"];
+    const realPeople = (event.people || []).filter(name => {
+      if (!name) return false;
+      const lower = name.trim().toLowerCase();
+      if (dummyNames.includes(lower)) return false;
+      if (lower.startsWith("member ")) return false;
+      return true;
+    });
+
     let attendeesProfiles = [];
-    for (let name of (event.people || [])) {
+    for (let name of realPeople) {
       let userObj;
       if (isMongoConnected) {
-        userObj = await User.findOne({ name });
+        userObj = await User.findOne({
+          name: { $regex: new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        });
       } else {
-        userObj = inMemory.users.find(u => u.name.toLowerCase() === name.toLowerCase());
+        userObj = inMemory.users.find(u => u.name.toLowerCase() === name.trim().toLowerCase());
       }
 
       if (userObj) {
@@ -441,12 +473,13 @@ app.get('/api/events/:id/people', async (req, res) => {
         });
       } else {
         attendeesProfiles.push({
-          name: name,
+          name: name.trim(),
           interests: []
         });
       }
     }
 
+    event.people = realPeople;
     res.json({ event, attendees: attendeesProfiles });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -473,16 +506,8 @@ app.post('/api/events', async (req, res) => {
     else if (finalCategory === "Art") { if (!emojiInput) emoji = "🎨"; }
     else if (finalCategory === "Technology") { if (!emojiInput) emoji = "💻"; }
 
-    const targetCount = parseInt(peopleCount, 10) || 1;
-    const defaultMembers = ["Aarav", "Meera", "Riya", "Kabir"];
-    let attendees = creatorName ? [creatorName] : [];
-
-    for (let i = 0; attendees.length < targetCount; i++) {
-      let memberName = defaultMembers[i] || `Member ${attendees.length + 1}`;
-      if (!attendees.includes(memberName)) {
-        attendees.push(memberName);
-      }
-    }
+    // ONLY real creator is added. Zero fake/dummy members!
+    let attendees = (creatorName && creatorName.trim()) ? [creatorName.trim()] : [];
 
     if (isMongoConnected) {
       const maxEvent = await Event.findOne().sort({ id: -1 });
