@@ -605,6 +605,10 @@ async function showPeople(id) {
    ===================================================== */
 let activeChatTarget = null;
 
+function goBackFromChat() {
+    showPage('events');
+}
+
 function openChat(name) {
     if (name) {
         activeChatTarget = name;

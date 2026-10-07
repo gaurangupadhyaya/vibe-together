@@ -239,6 +239,7 @@ button, input, select, textarea {
   font-size: 1.35rem;
   font-weight: 800;
   background: var(--gradient-primary);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -397,6 +398,7 @@ button, input, select, textarea {
 
 .hero-gradient-text {
   background: var(--gradient-primary);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
