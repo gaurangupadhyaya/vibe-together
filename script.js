@@ -243,6 +243,10 @@ async function handleLoginSubmit(e) {
             showPage('home');
         } else {
             showAuthAlert(data.error || "Login failed. Please check your details.", "error");
+            if (data.error && data.error.includes("Account not found")) {
+                const signupNameInput = document.getElementById("signupName");
+                if (signupNameInput && loginInput) signupNameInput.value = loginInput;
+            }
         }
     } catch (err) {
         console.error("Login error:", err);

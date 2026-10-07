@@ -225,70 +225,90 @@ io.on('connection', (socket) => {
 
 // ================= REST API ROUTES =================
 
-// 1. Auth / Signup Route
+// 1. Auth / Signup Route (Creates new user account in database)
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { name, email, password, interests } = req.body;
-    if (!name || !email || !password) {
+    const rawName = (name || '').trim();
+    const rawEmail = (email || '').trim();
+    
+    if (!rawName || !password) {
       return res.status(400).json({ error: 'Please enter Name, Email, and Password.' });
     }
 
-    const initialInterests = (Array.isArray(interests) && interests.length > 0) ? interests : ["Music", "Movies"];
+    const userEmail = rawEmail || `${rawName.toLowerCase().replace(/\s+/g, '')}@example.com`;
+    const initialInterests = (Array.isArray(interests) && interests.length > 0) ? interests : ["🎵 Music", "🎬 Movies"];
 
     if (isMongoConnected) {
-      let existingUser = await User.findOne({ $or: [{ name }, { email }] });
+      let existingUser = await User.findOne({
+        $or: [
+          { name: { $regex: new RegExp(`^${rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+          { email: { $regex: new RegExp(`^${userEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+        ]
+      });
+
       if (existingUser) {
-        return res.status(400).json({ error: 'An account with this Name or Email already exists. Please Log In!' });
+        return res.status(400).json({ error: 'An account with this Name or Email already exists! Please click "Log In".' });
       }
-      const newUser = await User.create({ name, email, password, interests: initialInterests });
-      return res.json({ success: true, message: 'Account created successfully!', user: newUser });
+
+      const newUser = await User.create({ name: rawName, email: userEmail, password, interests: initialInterests });
+      console.log(`✨ New user signed up: ${rawName}`);
+      return res.json({ success: true, message: 'Account created successfully! Please log in now.', user: newUser });
     } else {
-      let existingUser = inMemory.users.find(u => u.name.toLowerCase() === name.toLowerCase() || u.email.toLowerCase() === email.toLowerCase());
+      let existingUser = inMemory.users.find(u => u.name.toLowerCase() === rawName.toLowerCase() || u.email.toLowerCase() === userEmail.toLowerCase());
       if (existingUser) {
-        return res.status(400).json({ error: 'An account with this Name or Email already exists. Please Log In!' });
+        return res.status(400).json({ error: 'An account with this Name or Email already exists! Please click "Log In".' });
       }
-      const newUser = { name, email, password, interests: initialInterests };
+
+      const newUser = { name: rawName, email: userEmail, password, interests: initialInterests };
       inMemory.users.push(newUser);
-      return res.json({ success: true, message: 'Account created successfully!', user: newUser });
+      console.log(`✨ New user signed up in memory: ${rawName}`);
+      return res.json({ success: true, message: 'Account created successfully! Please log in now.', user: newUser });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 2. Auth / Login Route
+// 2. Auth / Login Route (Strict Login: Requires user to Sign Up first if account not found)
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { loginInput, name, email, password } = req.body;
-    const identifier = (loginInput || name || email || '').trim().toLowerCase();
-    
-    if (!identifier || !password) {
+    const rawIdentifier = (loginInput || name || email || '').trim();
+    if (!rawIdentifier || !password) {
       return res.status(400).json({ error: 'Please enter your Name or Email, and Password.' });
     }
+
+    const identifier = rawIdentifier.toLowerCase();
 
     if (isMongoConnected) {
       let user = await User.findOne({
         $or: [
-          { name: { $regex: new RegExp(`^${identifier}$`, 'i') } },
-          { email: { $regex: new RegExp(`^${identifier}$`, 'i') } }
+          { name: { $regex: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+          { email: { $regex: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
         ]
       });
 
       if (!user) {
-        return res.status(400).json({ error: 'Account not found! Please Sign Up first.' });
+        return res.status(400).json({ error: 'Account not found! Please click "Sign Up" tab first to create your account.' });
       }
+
       if (user.password !== password) {
         return res.status(400).json({ error: 'Incorrect password. Please try again.' });
       }
+
       return res.json({ success: true, message: 'Login successful!', user });
     } else {
       let user = inMemory.users.find(u => u.name.toLowerCase() === identifier || u.email.toLowerCase() === identifier);
+
       if (!user) {
-        return res.status(400).json({ error: 'Account not found! Please Sign Up first.' });
+        return res.status(400).json({ error: 'Account not found! Please click "Sign Up" tab first to create your account.' });
       }
+
       if (user.password !== password) {
         return res.status(400).json({ error: 'Incorrect password. Please try again.' });
       }
+
       return res.json({ success: true, message: 'Login successful!', user });
     }
   } catch (err) {
