@@ -1442,3 +1442,144 @@ footer small {
         flex-direction: column;
     }
 }
+
+/* ================= AUTHENTICATION PAGE ================= */
+.auth-container {
+    max-width: 480px;
+    margin: 40px auto;
+    padding: 0 15px;
+}
+
+.auth-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 35px 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e2c0ab;
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.auth-header h2 {
+    color: #4a1515;
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.auth-header p {
+    color: #666;
+    font-size: 14px;
+}
+
+.auth-tabs {
+    display: flex;
+    background: #f4e8e1;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 25px;
+}
+
+.auth-tab-btn {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-weight: bold;
+    color: #832828;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.auth-tab-btn.active {
+    background: #e2c0ab;
+    color: #4a1515;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.auth-alert {
+    padding: 12px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.auth-alert.error {
+    background: #ffe6e6;
+    color: #cc0000;
+    border: 1px solid #ffb3b3;
+}
+
+.auth-alert.success {
+    background: #e6ffe6;
+    color: #008000;
+    border: 1px solid #b3ffb3;
+}
+
+.auth-card .form-group {
+    margin-bottom: 18px;
+}
+
+.auth-card .form-group label {
+    display: block;
+    font-weight: bold;
+    color: #4a1515;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.auth-card .form-group input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #dcb59e;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+    color: #333;
+    outline: none;
+    transition: border 0.2s ease;
+}
+
+.auth-card .form-group input:focus {
+    border-color: #832828;
+    box-shadow: 0 0 0 3px rgba(131, 40, 40, 0.1);
+}
+
+.auth-submit-btn {
+    width: 100%;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.auth-footer-text {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13px;
+    color: #666;
+}
+
+.auth-footer-text a {
+    color: #832828;
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+.user-nav-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid #c99e87;
+    font-weight: bold;
+    color: #4a1515;
+}
+

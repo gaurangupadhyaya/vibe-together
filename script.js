@@ -8,13 +8,19 @@ const API_BASE = isLocal
     ? (window.location.port === '3000' ? '' : 'http://localhost:3000')
     : '';
 
-let user = {
-    name: "Gaurang",
-    interests: [
-        "🎵 Music",
-        "🎬 Movies"
-    ]
-};
+let user = null;
+
+function loadUserSession() {
+    try {
+        const saved = localStorage.getItem('vibe_user');
+        if (saved) {
+            user = JSON.parse(saved);
+        }
+    } catch (e) {
+        user = null;
+    }
+    updateNavUI();
+}
 
 let currentEvents = [];
 
@@ -101,9 +107,159 @@ function checkCustomCategory() {
 }
 
 /* =====================================================
+   AUTHENTICATION & NAVIGATION STATE
+   ===================================================== */
+function updateNavUI() {
+    const navAuthBtn = document.getElementById("navAuthBtn");
+    const appLinks = document.querySelectorAll(".nav-app-link");
+    const profileNameEl = document.getElementById("profileName");
+    const avatarLetterEl = document.getElementById("avatarLetter");
+
+    if (user && user.name) {
+        if (navAuthBtn) {
+            navAuthBtn.innerHTML = `<i class="fa-solid fa-right-from-bracket"></i> Logout (${user.name})`;
+        }
+        if (profileNameEl) profileNameEl.innerText = user.name;
+        if (avatarLetterEl) avatarLetterEl.innerText = user.name.charAt(0).toUpperCase();
+
+        // Show main app navigation links
+        appLinks.forEach(link => link.style.display = "inline-flex");
+    } else {
+        if (navAuthBtn) {
+            navAuthBtn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Login / Sign Up`;
+        }
+        // Hide main app navigation links until logged in
+        appLinks.forEach(link => link.style.display = "none");
+    }
+}
+
+function handleNavAuthClick() {
+    if (user) {
+        if (confirm("Are you sure you want to Log Out?")) {
+            localStorage.removeItem('vibe_user');
+            user = null;
+            updateNavUI();
+            showPage('login');
+            showAuthAlert("Logged out successfully.", "success");
+        }
+    } else {
+        showPage('login');
+    }
+}
+
+function switchAuthTab(tab) {
+    const loginTabBtn = document.getElementById("loginTabBtn");
+    const signupTabBtn = document.getElementById("signupTabBtn");
+    const loginForm = document.getElementById("loginForm");
+    const signupForm = document.getElementById("signupForm");
+    const alertEl = document.getElementById("authAlert");
+
+    if (alertEl) alertEl.style.display = "none";
+
+    if (tab === 'login') {
+        if (loginTabBtn) loginTabBtn.classList.add("active");
+        if (signupTabBtn) signupTabBtn.classList.remove("active");
+        if (loginForm) loginForm.style.display = "block";
+        if (signupForm) signupForm.style.display = "none";
+    } else {
+        if (signupTabBtn) signupTabBtn.classList.add("active");
+        if (loginTabBtn) loginTabBtn.classList.remove("active");
+        if (signupForm) signupForm.style.display = "block";
+        if (loginForm) loginForm.style.display = "none";
+    }
+}
+
+function showAuthAlert(msg, type) {
+    const alertEl = document.getElementById("authAlert");
+    if (!alertEl) return;
+    alertEl.innerText = msg;
+    alertEl.className = "auth-alert " + (type || "error");
+    alertEl.style.display = "block";
+}
+
+async function handleSignupSubmit(e) {
+    if (e) e.preventDefault();
+    const nameInput = document.getElementById("signupName");
+    const emailInput = document.getElementById("signupEmail");
+    const passwordInput = document.getElementById("signupPassword");
+
+    const name = nameInput ? nameInput.value.trim() : "";
+    const email = emailInput ? emailInput.value.trim() : "";
+    const password = passwordInput ? passwordInput.value.trim() : "";
+
+    if (!name || !email || !password) {
+        showAuthAlert("Please fill in Full Name, Email Address, and Password.", "error");
+        return;
+    }
+
+    try {
+        let res = await fetch(`${API_BASE}/api/auth/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password, interests: ["🎵 Music", "🎬 Movies"] })
+        });
+
+        let data = await res.json();
+        if (res.ok && data.success) {
+            showAuthAlert("Account created successfully! Please Log In with your password.", "success");
+            switchAuthTab('login');
+            const loginIdInput = document.getElementById("loginIdentifier");
+            if (loginIdInput) loginIdInput.value = name;
+            if (passwordInput) passwordInput.value = "";
+        } else {
+            showAuthAlert(data.error || "Sign Up failed. Please try again.", "error");
+        }
+    } catch (err) {
+        console.error("Signup error:", err);
+        showAuthAlert("Server connection error. Please try again.", "error");
+    }
+}
+
+async function handleLoginSubmit(e) {
+    if (e) e.preventDefault();
+    const loginInputEl = document.getElementById("loginIdentifier");
+    const passwordInputEl = document.getElementById("loginPassword");
+
+    const loginInput = loginInputEl ? loginInputEl.value.trim() : "";
+    const password = passwordInputEl ? passwordInputEl.value.trim() : "";
+
+    if (!loginInput || !password) {
+        showAuthAlert("Please enter your Name or Email, and Password.", "error");
+        return;
+    }
+
+    try {
+        let res = await fetch(`${API_BASE}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ loginInput, password })
+        });
+
+        let data = await res.json();
+        if (res.ok && data.success) {
+            user = data.user;
+            localStorage.setItem('vibe_user', JSON.stringify(user));
+            updateNavUI();
+            showPage('home');
+        } else {
+            showAuthAlert(data.error || "Login failed. Please check your details.", "error");
+        }
+    } catch (err) {
+        console.error("Login error:", err);
+        showAuthAlert("Server connection error. Please try again.", "error");
+    }
+}
+
+/* =====================================================
    SHOW PAGE
    ===================================================== */
 function showPage(pageName) {
+    // If user is not logged in and tries to access another page, redirect to Login!
+    if (!user && pageName !== 'login') {
+        pageName = 'login';
+        showAuthAlert("Please log in or sign up first to access Vibe Together!", "error");
+    }
+
     let pages = document.querySelectorAll(".page");
     pages.forEach(function(page) {
         page.style.display = "none";
@@ -123,59 +279,6 @@ function showPage(pageName) {
         loadUserProfile();
     } else if (pageName === "chat") {
         displayChat();
-    }
-}
-
-/* =====================================================
-   LOGIN (API INTEGRATED)
-   ===================================================== */
-async function login() {
-    let nameInput = document.getElementById("loginName");
-    let emailInput = document.getElementById("loginEmail");
-    let passwordInput = document.getElementById("loginPassword");
-    let message = document.getElementById("loginMessage");
-
-    let name = nameInput.value.trim();
-    let email = emailInput.value.trim();
-    let password = passwordInput.value.trim();
-
-    if (name === "" || email === "" || password === "") {
-        message.innerText = "Please fill all fields.";
-        message.style.color = "#82362f";
-        return;
-    }
-
-    try {
-        let res = await fetch(`${API_BASE}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password })
-        });
-
-        let data = await res.json();
-        if (res.ok && data.success) {
-            user.name = data.user.name;
-            user.interests = data.user.interests || user.interests;
-
-            let profileNameEl = document.getElementById("profileName");
-            if (profileNameEl) profileNameEl.innerText = user.name;
-
-            let avatarLetterEl = document.getElementById("avatarLetter");
-            if (avatarLetterEl) avatarLetterEl.innerText = user.name.charAt(0).toUpperCase();
-
-            message.innerText = "Login successful!";
-            message.style.color = "green";
-
-            alert("Welcome to Vibe Together, " + user.name + "!");
-            showPage("events");
-        } else {
-            message.innerText = data.error || "Login failed.";
-            message.style.color = "#82362f";
-        }
-    } catch (err) {
-        console.error("Login error:", err);
-        message.innerText = "Server connection error.";
-        message.style.color = "#82362f";
     }
 }
 
@@ -760,7 +863,12 @@ async function saveInterests() {
    START APPLICATION
    ===================================================== */
 initSocket();
-loadCategories();
-displayEvents();
-displayInterests();
-displayChat();
+
+document.addEventListener("DOMContentLoaded", function() {
+    loadUserSession();
+    if (user && user.name) {
+        showPage('home');
+    } else {
+        showPage('login');
+    }
+});

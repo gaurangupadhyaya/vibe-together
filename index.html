@@ -45,35 +45,35 @@
     </div>
 
 
-    <div class="nav-links">
+    <div class="nav-links" id="navLinks">
 
-        <button onclick="showPage('home')">
+        <button class="nav-app-link" onclick="showPage('home')">
             <i class="fa-solid fa-house"></i>
             Home
         </button>
 
 
-        <button onclick="showPage('events')">
+        <button class="nav-app-link" onclick="showPage('events')">
             <i class="fa-solid fa-calendar-days"></i>
             Events
         </button>
 
 
-        <button onclick="showPage('create')">
+        <button class="nav-app-link" onclick="showPage('create')">
             <i class="fa-solid fa-plus"></i>
             Create Event
         </button>
 
 
-        <button onclick="showPage('profile')">
+        <button class="nav-app-link" onclick="showPage('profile')">
             <i class="fa-solid fa-user"></i>
             Profile
         </button>
 
 
-        <button onclick="showPage('login')">
+        <button id="navAuthBtn" onclick="handleNavAuthClick()">
             <i class="fa-solid fa-right-to-bracket"></i>
-            Login
+            Login / Sign Up
         </button>
 
     </div>
@@ -86,9 +86,77 @@
 <main>
 
 
+<!-- ================= AUTHENTICATION (LOGIN & SIGN UP) ================= -->
+
+<section id="login" class="page">
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h2>Welcome to Vibe Together 👋</h2>
+                <p>Log in or create a new account to find events & connect with people.</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="auth-tabs">
+                <button id="loginTabBtn" class="auth-tab-btn active" onclick="switchAuthTab('login')">
+                    <i class="fa-solid fa-right-to-bracket"></i> Log In
+                </button>
+                <button id="signupTabBtn" class="auth-tab-btn" onclick="switchAuthTab('signup')">
+                    <i class="fa-solid fa-user-plus"></i> Sign Up
+                </button>
+            </div>
+
+            <div id="authAlert" class="auth-alert" style="display: none;"></div>
+
+            <!-- Log In Form -->
+            <form id="loginForm" onsubmit="handleLoginSubmit(event)">
+                <div class="form-group">
+                    <label><i class="fa-solid fa-user"></i> Name or Email</label>
+                    <input type="text" id="loginIdentifier" placeholder="Enter your registered Name or Email" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fa-solid fa-lock"></i> Password</label>
+                    <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="main-btn auth-submit-btn">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Log In
+                </button>
+                <div class="auth-footer-text">
+                    Don't have an account yet? <a href="javascript:void(0)" onclick="switchAuthTab('signup')">Sign Up first</a>
+                </div>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signupForm" style="display: none;" onsubmit="handleSignupSubmit(event)">
+                <div class="form-group">
+                    <label><i class="fa-solid fa-signature"></i> Full Name</label>
+                    <input type="text" id="signupName" placeholder="Example: Gaurang Upadhyaya" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+                    <input type="email" id="signupEmail" placeholder="Example: gaurang@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fa-solid fa-lock"></i> Password</label>
+                    <input type="password" id="signupPassword" placeholder="Create a secure password" required>
+                </div>
+                <button type="submit" class="main-btn auth-submit-btn">
+                    <i class="fa-solid fa-user-check"></i> Create Account & Sign Up
+                </button>
+                <div class="auth-footer-text">
+                    Already registered? <a href="javascript:void(0)" onclick="switchAuthTab('login')">Log In to your account</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</section>
+
+
 <!-- ================= HOME ================= -->
 
-<section id="home" class="page active">
+<section id="home" class="page">
 
 
     <div class="hero">
