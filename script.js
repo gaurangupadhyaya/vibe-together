@@ -536,23 +536,31 @@ async function showPeople(id) {
                     ? person.interests.join(", ")
                     : "No interests added yet";
 
+                let isMe = user && user.name && (person.name.trim().toLowerCase() === user.name.trim().toLowerCase());
+
                 peopleHTML += `
                     <div class="person-card">
                         <div class="person-avatar">
                             ${person.name.charAt(0).toUpperCase()}
                         </div>
 
-                        <h3>${person.name}</h3>
+                        <h3>${person.name} ${isMe ? '<span style="font-size: 13px; color: #832828; font-weight: normal; margin-left: 4px;">(You)</span>' : ''}</h3>
 
                         <p>
                             <i class="fa-solid fa-heart"></i>
                             ${interestsText}
                         </p>
 
-                        <button class="outline-btn" onclick="openChat('${person.name}')">
-                            <i class="fa-solid fa-comments"></i>
-                            Connect & Chat
-                        </button>
+                        ${isMe ? `
+                            <div style="background: rgba(131,40,40,0.1); color: #832828; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 13px; text-align: center; margin-top: 10px;">
+                                <i class="fa-solid fa-user-check"></i> Your Profile (Logged In)
+                            </div>
+                        ` : `
+                            <button class="outline-btn" onclick="openChat('${person.name}')" style="margin-top: 10px;">
+                                <i class="fa-solid fa-comments"></i>
+                                Connect & Chat
+                            </button>
+                        `}
                     </div>
                 `;
             });
@@ -595,7 +603,19 @@ async function showPeople(id) {
 /* =====================================================
    LIVE CHAT & WEBSOCKET FUNCTIONS
    ===================================================== */
+let activeChatTarget = null;
+
 function openChat(name) {
+    if (name) {
+        activeChatTarget = name;
+        const titleEl = document.getElementById("chatTitle");
+        const subTitleEl = document.getElementById("chatSubTitle");
+        const inputEl = document.getElementById("chatInput");
+
+        if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-comments"></i> Chat with ${name}`;
+        if (subTitleEl) subTitleEl.innerText = `Send direct messages and coordinate with ${name}.`;
+        if (inputEl) inputEl.placeholder = `Write a message to ${name}...`;
+    }
     displayChat();
     showPage("chat");
 }
