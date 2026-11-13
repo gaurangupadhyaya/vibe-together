@@ -352,100 +352,7 @@
 
 
 
-<!-- ================= LOGIN ================= -->
 
-<section id="login" class="page">
-
-
-    <div class="form-card login-card">
-
-
-        <div class="form-icon">
-
-            <i class="fa-solid fa-user"></i>
-
-        </div>
-
-
-        <h2>
-            Welcome to Vibe Together
-        </h2>
-
-
-        <p>
-            Login and start discovering events.
-        </p>
-
-
-        <label>
-            Name
-        </label>
-
-
-        <div class="input-box">
-
-            <i class="fa-solid fa-user"></i>
-
-            <input
-                id="loginName"
-                type="text"
-                placeholder="Enter your name">
-
-        </div>
-
-
-        <label>
-            Email
-        </label>
-
-
-        <div class="input-box">
-
-            <i class="fa-solid fa-envelope"></i>
-
-            <input
-                id="loginEmail"
-                type="email"
-                placeholder="Enter email">
-
-        </div>
-
-
-        <label>
-            Password
-        </label>
-
-
-        <div class="input-box">
-
-            <i class="fa-solid fa-lock"></i>
-
-            <input
-                id="loginPassword"
-                type="password"
-                placeholder="Enter password">
-
-        </div>
-
-
-        <button
-            class="main-btn full-btn"
-            onclick="login()">
-
-            <i class="fa-solid fa-right-to-bracket"></i>
-
-            Login
-
-        </button>
-
-
-        <p id="loginMessage"></p>
-
-
-    </div>
-
-
-</section>
 
 
 
@@ -787,22 +694,19 @@
 
 <section id="chat" class="page">
 
-
     <div class="chat-container">
-
-        <button class="back-btn" onclick="goBackFromChat()">
-            <i class="fa-solid fa-arrow-left"></i> Back to Events
-        </button>
 
         <div class="chat-heading">
 
+            <button class="chat-back-arrow" onclick="goBackFromChat()" title="Back to Events" style="background: rgba(255,255,255,0.25); border: none; color: #ffffff; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; margin-right: 4px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.25)'">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
 
             <div class="chat-avatar">
 
                 <i class="fa-solid fa-users"></i>
 
             </div>
-
 
             <div>
 
@@ -815,6 +719,8 @@
                 </p>
 
             </div>
+
+        </div>
 
 
         </div>

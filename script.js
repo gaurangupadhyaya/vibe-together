@@ -635,6 +635,23 @@ function openChat(name) {
     showPage("chat");
 }
 
+function shouldDisplayMessage(msg) {
+    if (!activeChatTarget) return true;
+    let target = activeChatTarget.toLowerCase();
+    let myName = (user && user.name) ? user.name.toLowerCase() : '';
+    let sender = (msg.senderName || '').toLowerCase();
+    let recipient = (msg.recipientName || '').toLowerCase();
+
+    // Legacy or general broadcast message
+    if (!recipient) return true;
+
+    // Direct message between logged in user and target
+    if ((sender === target && recipient === myName) || (sender === myName && recipient === target)) {
+        return true;
+    }
+    return false;
+}
+
 function renderMessages(messages) {
     let box = document.getElementById("chatMessages");
     if (!box) return;
@@ -652,10 +669,21 @@ function appendSingleMessage(msg, scroll = true) {
     let box = document.getElementById("chatMessages");
     if (!box || !msg) return;
 
+    if (!shouldDisplayMessage(msg)) return;
+
     let myName = (user && user.name) ? user.name.trim().toLowerCase() : "";
     let sender = (msg.senderName || 'Anonymous').trim();
     let isMine = myName && (sender.toLowerCase() === myName);
     let className = isMine ? "my-message" : "";
+
+    // Deduplication check: prevent duplicate display when socket echoes back an optimistically rendered message
+    let lastMsg = box.lastElementChild;
+    if (isMine && lastMsg && lastMsg.classList.contains("my-message")) {
+        let lastTextNode = lastMsg.querySelector("div");
+        if (lastTextNode && lastTextNode.textContent === msg.text) {
+            return;
+        }
+    }
 
     let msgDiv = document.createElement("div");
     msgDiv.className = `message ${className}`;
@@ -679,7 +707,7 @@ function appendSingleMessage(msg, scroll = true) {
 
 function handleTyping() {
     if (socket && socket.connected && user && user.name) {
-        socket.emit('typing', { name: user.name });
+        socket.emit('typing', { name: user.name, target: activeChatTarget });
     }
 }
 
@@ -695,12 +723,19 @@ function showTypingIndicator(name) {
 }
 
 async function displayChat() {
+    let target = activeChatTarget || '';
+    let currentUserName = (user && user.name) ? user.name : '';
+
     if (socket && socket.connected) {
-        socket.emit('request_messages');
+        socket.emit('request_messages', { target, user: currentUserName });
     }
     // Also load via REST so messages appear immediately without waiting for websocket
     try {
-        let res = await fetch(`${API_BASE}/api/messages`);
+        let url = `${API_BASE}/api/messages`;
+        if (target && currentUserName) {
+            url += `?target=${encodeURIComponent(target)}&user=${encodeURIComponent(currentUserName)}`;
+        }
+        let res = await fetch(url);
         if (res.ok) {
             let messages = await res.json();
             renderMessages(messages);
@@ -718,34 +753,34 @@ async function sendMessage() {
     if (text === "") return;
 
     const sender = (user && user.name) ? user.name : "Anonymous";
+    const recipient = activeChatTarget || "";
 
     // Clear input immediately so user feedback is instantaneous
     input.value = "";
 
+    const msgPayload = {
+        senderName: sender,
+        recipientName: recipient,
+        text: text,
+        createdAt: new Date().toISOString()
+    };
+
+    // Optimistically render to UI immediately so user sees it instantly
+    appendSingleMessage(msgPayload);
+
     // If socket is connected, emit real-time event
     if (socket && socket.connected) {
-        socket.emit('send_message', { senderName: sender, text });
+        socket.emit('send_message', msgPayload);
     } else {
         // Fallback to REST endpoint
         try {
-            let res = await fetch(`${API_BASE}/api/messages`, {
+            await fetch(`${API_BASE}/api/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ senderName: sender, text })
+                body: JSON.stringify(msgPayload)
             });
-
-            if (res.ok) {
-                let data = await res.json();
-                if (data.message) {
-                    appendSingleMessage(data.message);
-                }
-            } else {
-                console.error("REST message send returned status:", res.status);
-                appendSingleMessage({ senderName: sender, text, createdAt: new Date() });
-            }
         } catch (err) {
-            console.error("Error sending message:", err);
-            appendSingleMessage({ senderName: sender, text, createdAt: new Date() });
+            console.error("Error sending message via REST fallback:", err);
         }
     }
 }

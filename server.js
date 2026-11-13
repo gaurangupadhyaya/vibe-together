@@ -1,9 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const path = require('path');
 const mongoose = require('mongoose');
 const dns = require('dns');
 const fs = require('fs');
@@ -21,22 +21,37 @@ try {
   console.warn('DNS setServers notice:', e.message);
 }
 
-// Database Connection Handler (Self-contained for zero deployment errors)
+// Reliable MongoDB Atlas Cloud Connection String
+const DEFAULT_ATLAS_URI = 'mongodb+srv://gaurangupadhyaya9a_db_user:vibetogether2026@cluster0.foz6vom.mongodb.net/vibe_together?retryWrites=true&w=majority';
+
+// Database Connection Handler
 const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/vibe_together';
+  const uri = process.env.MONGODB_URI || DEFAULT_ATLAS_URI;
   try {
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000
+      serverSelectionTimeoutMS: 15000
     });
     console.log(`✅ MongoDB Connected successfully to: ${uri.replace(/:([^@]+)@/, ':****@')}`);
     return true;
   } catch (err) {
-    console.warn(`⚠️ Warning: Could not connect to MongoDB daemon at ${uri.replace(/:([^@]+)@/, ':****@')}.`);
+    console.warn(`⚠️ Warning: Could not connect to MongoDB at ${uri.replace(/:([^@]+)@/, ':****@')}.`);
     console.warn(`Details: ${err.message}`);
     console.warn(`Running server with in-memory Mongo mock store for seamless development...`);
     return false;
   }
 };
+
+// Real-time helper to check if MongoDB connection is alive
+const isDbConnected = () => (mongoose.connection && mongoose.connection.readyState === 1);
+
+mongoose.connection.on('connected', () => {
+  isMongoConnected = true;
+  console.log('📡 MongoDB Mongoose connection active.');
+});
+mongoose.connection.on('disconnected', () => {
+  isMongoConnected = false;
+  console.warn('📡 MongoDB Mongoose disconnected.');
+});
 
 // ================= MONGOOSE SCHEMAS =================
 const userSchema = new mongoose.Schema({
@@ -70,6 +85,7 @@ const commentSchema = new mongoose.Schema({
 
 const messageSchema = new mongoose.Schema({
   senderName: { type: String, default: 'Anonymous' },
+  recipientName: { type: String, default: '' },
   text: { type: String, required: true },
   createdAt: { type: Date, default: Date.now }
 });
@@ -92,10 +108,11 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 let isMongoConnected = false;
 
-// In-Memory Fallback State (No fake demo profiles, only real registered users & events)
+// In-Memory Fallback State
 const inMemory = {
   users: [
-    { name: "Gaurang", email: "gaurang@example.com", password: "password123", interests: ["🎵 Music", "🎬 Movies"] }
+    { name: "Gaurang", email: "gaurang@example.com", password: "password123", interests: ["🎵 Music", "🎬 Movies"] },
+    { name: "Corrosion", email: "corros@gmail.com", password: "0000", interests: ["🎵 Music", "🎬 Movies", "⚽ Sports", "🎨 Art"] }
   ],
   events: [],
   comments: [],
@@ -194,13 +211,33 @@ const seedDatabase = async () => {
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected to live chat: ${socket.id}`);
 
-  socket.on('request_messages', async () => {
+  socket.on('request_messages', async (data) => {
     try {
       let history = [];
+      const target = data && data.target ? data.target : null;
+      const currentUser = data && data.user ? data.user : null;
+
       if (isMongoConnected) {
-        history = await Message.find().sort({ createdAt: 1 });
+        let filter = {};
+        if (target && currentUser) {
+          filter = {
+            $or: [
+              { senderName: currentUser, recipientName: target },
+              { senderName: target, recipientName: currentUser },
+              { recipientName: { $in: ['', null] } }
+            ]
+          };
+        }
+        history = await Message.find(filter).sort({ createdAt: 1 });
       } else {
         history = inMemory.messages;
+        if (target && currentUser) {
+          history = history.filter(m => 
+            (m.senderName === currentUser && m.recipientName === target) ||
+            (m.senderName === target && m.recipientName === currentUser) ||
+            (!m.recipientName)
+          );
+        }
       }
       socket.emit('initial_messages', history);
     } catch (err) {
@@ -210,18 +247,20 @@ io.on('connection', (socket) => {
 
   socket.on('send_message', async (data) => {
     try {
-      const { senderName, text } = data;
+      const { senderName, recipientName, text } = data;
       if (!text || !text.trim()) return;
 
       let newMessage;
       if (isMongoConnected) {
         newMessage = await Message.create({
           senderName: senderName || 'Anonymous',
+          recipientName: recipientName || '',
           text: text.trim()
         });
       } else {
         newMessage = {
           senderName: senderName || 'Anonymous',
+          recipientName: recipientName || '',
           text: text.trim(),
           createdAt: new Date()
         };
@@ -259,7 +298,7 @@ app.post('/api/auth/signup', async (req, res) => {
     const userEmail = rawEmail || `${rawName.toLowerCase().replace(/\s+/g, '')}@example.com`;
     const initialInterests = (Array.isArray(interests) && interests.length > 0) ? interests : ["🎵 Music", "🎬 Movies"];
 
-    if (isMongoConnected) {
+    if (isDbConnected() || isMongoConnected) {
       let existingUser = await User.findOne({
         $or: [
           { name: { $regex: new RegExp(`^${rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
@@ -272,7 +311,7 @@ app.post('/api/auth/signup', async (req, res) => {
       }
 
       const newUser = await User.create({ name: rawName, email: userEmail, password, interests: initialInterests });
-      console.log(`✨ New user signed up: ${rawName}`);
+      console.log(`✨ New user signed up in MongoDB: ${rawName}`);
       return res.json({ success: true, message: 'Account created successfully! Please log in now.', user: newUser });
     } else {
       let existingUser = inMemory.users.find(u => u.name.toLowerCase() === rawName.toLowerCase() || u.email.toLowerCase() === userEmail.toLowerCase());
@@ -282,7 +321,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
       const newUser = { name: rawName, email: userEmail, password, interests: initialInterests };
       inMemory.users.push(newUser);
-      console.log(`✨ New user signed up in memory: ${rawName}`);
+      console.log(`✨ New user signed up in memory fallback: ${rawName}`);
       return res.json({ success: true, message: 'Account created successfully! Please log in now.', user: newUser });
     }
   } catch (err) {
@@ -301,7 +340,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const identifier = rawIdentifier.toLowerCase();
 
-    if (isMongoConnected) {
+    if (isDbConnected() || isMongoConnected) {
       let user = await User.findOne({
         $or: [
           { name: { $regex: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
@@ -319,6 +358,7 @@ app.post('/api/auth/login', async (req, res) => {
 
       return res.json({ success: true, message: 'Login successful!', user });
     } else {
+      console.warn('⚠️ Notice: Processing login in offline in-memory store mode');
       let user = inMemory.users.find(u => u.name.toLowerCase() === identifier || u.email.toLowerCase() === identifier);
 
       if (!user) {
@@ -619,14 +659,33 @@ app.post('/api/events/:id/comments', async (req, res) => {
   }
 });
 
-// 9. Group Chat REST API
+// 9. Group / Direct Chat REST API
 app.get('/api/messages', async (req, res) => {
   try {
+    const { target, user: currentUser } = req.query;
     if (isMongoConnected) {
-      const messages = await Message.find().sort({ createdAt: 1 });
+      let filter = {};
+      if (target && currentUser) {
+        filter = {
+          $or: [
+            { senderName: currentUser, recipientName: target },
+            { senderName: target, recipientName: currentUser },
+            { recipientName: { $in: ['', null] } }
+          ]
+        };
+      }
+      const messages = await Message.find(filter).sort({ createdAt: 1 });
       return res.json(messages);
     } else {
-      return res.json(inMemory.messages);
+      let messages = inMemory.messages;
+      if (target && currentUser) {
+        messages = messages.filter(m => 
+          (m.senderName === currentUser && m.recipientName === target) ||
+          (m.senderName === target && m.recipientName === currentUser) ||
+          (!m.recipientName)
+        );
+      }
+      return res.json(messages);
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -635,18 +694,20 @@ app.get('/api/messages', async (req, res) => {
 
 app.post('/api/messages', async (req, res) => {
   try {
-    const { senderName, text } = req.body;
+    const { senderName, recipientName, text } = req.body;
     if (!text || !text.trim()) return res.status(400).json({ error: 'Message text is required' });
 
     let newMessage;
     if (isMongoConnected) {
       newMessage = await Message.create({
         senderName: (senderName && senderName.trim()) ? senderName.trim() : 'Anonymous',
+        recipientName: (recipientName && recipientName.trim()) ? recipientName.trim() : '',
         text: text.trim()
       });
     } else {
       newMessage = {
         senderName: (senderName && senderName.trim()) ? senderName.trim() : 'Anonymous',
+        recipientName: (recipientName && recipientName.trim()) ? recipientName.trim() : '',
         text: text.trim(),
         createdAt: new Date()
       };
