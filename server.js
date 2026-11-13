@@ -619,7 +619,7 @@ app.post('/api/events/:id/comments', async (req, res) => {
   }
 });
 
-// 9. Group Chat REST fallback
+// 9. Group Chat REST API
 app.get('/api/messages', async (req, res) => {
   try {
     if (isMongoConnected) {
@@ -628,6 +628,34 @@ app.get('/api/messages', async (req, res) => {
     } else {
       return res.json(inMemory.messages);
     }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/messages', async (req, res) => {
+  try {
+    const { senderName, text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: 'Message text is required' });
+
+    let newMessage;
+    if (isMongoConnected) {
+      newMessage = await Message.create({
+        senderName: (senderName && senderName.trim()) ? senderName.trim() : 'Anonymous',
+        text: text.trim()
+      });
+    } else {
+      newMessage = {
+        senderName: (senderName && senderName.trim()) ? senderName.trim() : 'Anonymous',
+        text: text.trim(),
+        createdAt: new Date()
+      };
+      inMemory.messages.push(newMessage);
+    }
+
+    // Broadcast in real-time to all connected Socket.IO clients
+    io.emit('receive_message', newMessage);
+    return res.json({ success: true, message: newMessage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -4,8 +4,9 @@
 
 // Auto-detect API Base URL so it works seamlessly locally, in VS Code Live Server, and on deployed Render cloud
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+const localHost = (window.location.hostname === '127.0.0.1') ? '127.0.0.1' : 'localhost';
 const API_BASE = isLocal 
-    ? (window.location.port === '3000' ? '' : 'http://localhost:3000')
+    ? (window.location.port === '3000' ? '' : `http://${localHost}:3000`)
     : '';
 
 let user = null;
@@ -44,7 +45,13 @@ let typingTimeout = null;
 function initSocket() {
     if (typeof io !== 'undefined') {
         try {
-            socket = io(API_BASE || undefined);
+            const socketUrl = API_BASE || window.location.origin;
+            socket = io(socketUrl, {
+                transports: ['polling', 'websocket'],
+                reconnection: true,
+                reconnectionAttempts: 10,
+                reconnectionDelay: 1000
+            });
 
             socket.on('connect', () => {
                 console.log('⚡ Connected to live WebSocket server!');
@@ -60,7 +67,7 @@ function initSocket() {
             });
 
             socket.on('user_typing', (data) => {
-                showTypingIndicator(data.name);
+                if (data && data.name) showTypingIndicator(data.name);
             });
         } catch (e) {
             console.warn('Socket initialization fallback:', e);
@@ -643,20 +650,26 @@ function renderMessages(messages) {
 
 function appendSingleMessage(msg, scroll = true) {
     let box = document.getElementById("chatMessages");
-    if (!box) return;
+    if (!box || !msg) return;
 
-    let isMine = msg.senderName === user.name;
+    let myName = (user && user.name) ? user.name.trim().toLowerCase() : "";
+    let sender = (msg.senderName || 'Anonymous').trim();
+    let isMine = myName && (sender.toLowerCase() === myName);
     let className = isMine ? "my-message" : "";
 
     let msgDiv = document.createElement("div");
     msgDiv.className = `message ${className}`;
-    msgDiv.innerHTML = `
-        <small style="font-size: 10px; display: block; opacity: 0.7; margin-bottom: 2px;">
-            ${msg.senderName}
-        </small>
-        ${msg.text}
-    `;
 
+    // Safely render message text
+    let header = document.createElement("small");
+    header.style.cssText = "font-size: 10px; display: block; opacity: 0.7; margin-bottom: 2px;";
+    header.textContent = sender;
+
+    let textNode = document.createElement("div");
+    textNode.textContent = msg.text || '';
+
+    msgDiv.appendChild(header);
+    msgDiv.appendChild(textNode);
     box.appendChild(msgDiv);
 
     if (scroll) {
@@ -665,7 +678,7 @@ function appendSingleMessage(msg, scroll = true) {
 }
 
 function handleTyping() {
-    if (socket && socket.connected) {
+    if (socket && socket.connected && user && user.name) {
         socket.emit('typing', { name: user.name });
     }
 }
@@ -684,40 +697,55 @@ function showTypingIndicator(name) {
 async function displayChat() {
     if (socket && socket.connected) {
         socket.emit('request_messages');
-    } else {
-        try {
-            let res = await fetch(`${API_BASE}/api/messages`);
+    }
+    // Also load via REST so messages appear immediately without waiting for websocket
+    try {
+        let res = await fetch(`${API_BASE}/api/messages`);
+        if (res.ok) {
             let messages = await res.json();
             renderMessages(messages);
-        } catch (err) {
-            console.error("Error displaying chat:", err);
         }
+    } catch (err) {
+        console.error("Error displaying chat via API:", err);
     }
 }
 
 async function sendMessage() {
     let input = document.getElementById("chatInput");
+    if (!input) return;
     let text = input.value.trim();
 
     if (text === "") return;
 
+    const sender = (user && user.name) ? user.name : "Anonymous";
+
+    // Clear input immediately so user feedback is instantaneous
+    input.value = "";
+
+    // If socket is connected, emit real-time event
     if (socket && socket.connected) {
-        socket.emit('send_message', { senderName: user.name, text });
-        input.value = "";
+        socket.emit('send_message', { senderName: sender, text });
     } else {
+        // Fallback to REST endpoint
         try {
             let res = await fetch(`${API_BASE}/api/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ senderName: user.name, text })
+                body: JSON.stringify({ senderName: sender, text })
             });
 
             if (res.ok) {
-                input.value = "";
-                displayChat();
+                let data = await res.json();
+                if (data.message) {
+                    appendSingleMessage(data.message);
+                }
+            } else {
+                console.error("REST message send returned status:", res.status);
+                appendSingleMessage({ senderName: sender, text, createdAt: new Date() });
             }
         } catch (err) {
             console.error("Error sending message:", err);
+            appendSingleMessage({ senderName: sender, text, createdAt: new Date() });
         }
     }
 }
