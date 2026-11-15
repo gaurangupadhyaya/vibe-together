@@ -154,25 +154,204 @@ function handleNavAuthClick() {
     }
 }
 
+let activeResetIdentifier = "";
+let activeResetToken = "";
+
 function switchAuthTab(tab) {
     const loginTabBtn = document.getElementById("loginTabBtn");
     const signupTabBtn = document.getElementById("signupTabBtn");
     const loginForm = document.getElementById("loginForm");
     const signupForm = document.getElementById("signupForm");
+    const forgotForm = document.getElementById("forgotForm");
+    const resetForm = document.getElementById("resetForm");
     const alertEl = document.getElementById("authAlert");
 
     if (alertEl) alertEl.style.display = "none";
+
+    // Hide all forms first
+    if (loginForm) loginForm.style.display = "none";
+    if (signupForm) signupForm.style.display = "none";
+    if (forgotForm) forgotForm.style.display = "none";
+    if (resetForm) resetForm.style.display = "none";
 
     if (tab === 'login') {
         if (loginTabBtn) loginTabBtn.classList.add("active");
         if (signupTabBtn) signupTabBtn.classList.remove("active");
         if (loginForm) loginForm.style.display = "block";
-        if (signupForm) signupForm.style.display = "none";
-    } else {
+    } else if (tab === 'signup') {
         if (signupTabBtn) signupTabBtn.classList.add("active");
         if (loginTabBtn) loginTabBtn.classList.remove("active");
         if (signupForm) signupForm.style.display = "block";
-        if (loginForm) loginForm.style.display = "none";
+    } else if (tab === 'forgot') {
+        if (loginTabBtn) loginTabBtn.classList.remove("active");
+        if (signupTabBtn) signupTabBtn.classList.remove("active");
+        if (forgotForm) forgotForm.style.display = "block";
+    } else if (tab === 'reset') {
+        if (loginTabBtn) loginTabBtn.classList.remove("active");
+        if (signupTabBtn) signupTabBtn.classList.remove("active");
+        if (resetForm) resetForm.style.display = "block";
+    }
+}
+
+function showForgotPassword() {
+    switchAuthTab('forgot');
+    const loginInputEl = document.getElementById("loginIdentifier");
+    const forgotInputEl = document.getElementById("forgotIdentifier");
+    if (loginInputEl && forgotInputEl && loginInputEl.value.trim()) {
+        forgotInputEl.value = loginInputEl.value.trim();
+    }
+    if (forgotInputEl) forgotInputEl.focus();
+}
+
+async function handleForgotSubmit(e, isResend = false) {
+    if (e) e.preventDefault();
+    const forgotInputEl = document.getElementById("forgotIdentifier");
+    const submitBtn = document.getElementById("forgotSubmitBtn");
+
+    let identifier = forgotInputEl ? forgotInputEl.value.trim() : "";
+    if (isResend && activeResetIdentifier) {
+        identifier = activeResetIdentifier;
+    }
+
+    if (!identifier) {
+        showAuthAlert("Please enter your registered Name or Email.", "error");
+        return;
+    }
+
+    activeResetIdentifier = identifier;
+
+    // Working in progress button state
+    const originalBtnHTML = submitBtn ? submitBtn.innerHTML : "Send OTP & Reset Link";
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending OTP... Please wait...`;
+    }
+
+    try {
+        let res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier })
+        });
+
+        let data = await res.json();
+        if (res.ok && data.success) {
+            activeResetToken = data.resetToken || "";
+            switchAuthTab('reset');
+
+            const otpInput = document.getElementById("resetOtp");
+            if (otpInput) {
+                otpInput.value = ""; // Empty so user manually types from their email inbox!
+                otpInput.focus();
+            }
+
+            showAuthAlert(`✅ 6-digit OTP code sent to your email (${data.email})! Please check your real inbox, read the OTP, and manually type it below.`, "success");
+
+            const newPassInput = document.getElementById("resetNewPassword");
+            if (newPassInput) newPassInput.value = "";
+            const confirmPassInput = document.getElementById("resetConfirmPassword");
+            if (confirmPassInput) confirmPassInput.value = "";
+        } else {
+            showAuthAlert(data.error || "Could not send password reset OTP. Please check your details.", "error");
+        }
+    } catch (err) {
+        console.error("Forgot password request error:", err);
+        showAuthAlert("Server connection error. Please ensure the backend is running.", "error");
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHTML;
+        }
+    }
+}
+
+async function handleResetSubmit(e) {
+    if (e) e.preventDefault();
+    const otpInput = document.getElementById("resetOtp");
+    const newPassInput = document.getElementById("resetNewPassword");
+    const confirmPassInput = document.getElementById("resetConfirmPassword");
+    const submitBtn = document.getElementById("resetSubmitBtn");
+
+    const otp = otpInput ? otpInput.value.trim() : "";
+    const newPassword = newPassInput ? newPassInput.value.trim() : "";
+    const confirmPassword = confirmPassInput ? confirmPassInput.value.trim() : "";
+
+    if (!activeResetToken && (!otp || otp.length !== 6)) {
+        showAuthAlert("Please enter the 6-digit OTP code sent to your email.", "error");
+        return;
+    }
+
+    if (!newPassword || newPassword.length < 4) {
+        showAuthAlert("Password must be at least 4 characters long.", "error");
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        showAuthAlert("Passwords do not match! Please verify both passwords.", "error");
+        return;
+    }
+
+    // Working in progress button state
+    const originalBtnHTML = submitBtn ? submitBtn.innerHTML : "Reset & Save Password";
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Resetting Password... Please wait...`;
+    }
+
+    try {
+        let res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                identifier: activeResetIdentifier,
+                otp,
+                token: activeResetToken,
+                newPassword
+            })
+        });
+
+        let data = await res.json();
+        if (res.ok && data.success) {
+            showAuthAlert("🎉 " + data.message, "success");
+            setTimeout(() => {
+                switchAuthTab('login');
+                const loginIdInput = document.getElementById("loginIdentifier");
+                const loginPassInput = document.getElementById("loginPassword");
+                if (loginIdInput && activeResetIdentifier) loginIdInput.value = activeResetIdentifier;
+                if (loginPassInput) loginPassInput.value = newPassword;
+                showAuthAlert("✅ Password reset complete! Log In with your new password.", "success");
+            }, 1200);
+        } else {
+            showAuthAlert(data.error || "Password reset failed. Please check OTP and try again.", "error");
+        }
+    } catch (err) {
+        console.error("Reset password error:", err);
+        showAuthAlert("Server connection error. Please try again.", "error");
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHTML;
+        }
+    }
+}
+
+function checkUrlResetToken() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+            activeResetToken = token;
+            showPage('login');
+            switchAuthTab('reset');
+            showAuthAlert("🔑 Reset link recognized! Please enter your new password below.", "success");
+            const otpInput = document.getElementById("resetOtp");
+            if (otpInput) {
+                const otpGroup = otpInput.closest(".form-group");
+                if (otpGroup) otpGroup.style.display = "none";
+            }
+        }
+    } catch (e) {
+        console.warn("URL token check error:", e);
     }
 }
 
@@ -957,9 +1136,13 @@ initSocket();
 
 document.addEventListener("DOMContentLoaded", function() {
     loadUserSession();
-    if (user && user.name) {
-        showPage('home');
-    } else {
-        showPage('login');
+    checkUrlResetToken();
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.get('token')) {
+        if (user && user.name) {
+            showPage('home');
+        } else {
+            showPage('login');
+        }
     }
 });

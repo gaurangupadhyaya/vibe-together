@@ -7,6 +7,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const dns = require('dns');
 const fs = require('fs');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 let embeddedImages = {};
 try {
   embeddedImages = require('./embedded_images');
@@ -59,6 +61,9 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true },
   password: { type: String, required: true },
   interests: [{ type: String }],
+  resetOtp: { type: String, default: null },
+  resetToken: { type: String, default: null },
+  resetTokenExpires: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -111,12 +116,105 @@ let isMongoConnected = false;
 // In-Memory Fallback State
 const inMemory = {
   users: [
-    { name: "Gaurang", email: "gaurang@example.com", password: "password123", interests: ["🎵 Music", "🎬 Movies"] },
-    { name: "Corrosion", email: "corros@gmail.com", password: "0000", interests: ["🎵 Music", "🎬 Movies", "⚽ Sports", "🎨 Art"] }
+    { name: "Gaurang", email: "gaurang@example.com", password: "password123", interests: ["🎵 Music", "🎬 Movies"], resetOtp: null, resetToken: null, resetTokenExpires: null },
+    { name: "Corrosion", email: "corros@gmail.com", password: "0000", interests: ["🎵 Music", "🎬 Movies", "⚽ Sports", "🎨 Art"], resetOtp: null, resetToken: null, resetTokenExpires: null }
   ],
   events: [],
   comments: [],
   messages: []
+};
+
+// ================= NODEMAILER EMAIL SETUP =================
+let mailTransporter = null;
+const setupMailer = () => {
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+
+  if (user && pass) {
+    mailTransporter = nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      auth: {
+        user: user.trim(),
+        pass: pass.trim().replace(/\s+/g, '') // strip any spaces from 16-char app password
+      }
+    });
+    console.log(`📧 Nodemailer SMTP transporter active for: ${user.trim()}`);
+  } else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    mailTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_PORT == '465',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+    console.log(`📧 Nodemailer custom SMTP active for: ${process.env.SMTP_HOST}`);
+  } else {
+    mailTransporter = null;
+    console.warn('⚠️ Notice: EMAIL_USER and EMAIL_PASS not yet set in .env. To send real emails to inboxes, add your email and Google App Password to .env.');
+  }
+};
+setupMailer();
+
+// Helper to send real password reset email to inboxes
+const sendPasswordResetEmail = async (toEmail, userName, otp, resetLink) => {
+  if (!mailTransporter) {
+    console.error(`❌ Real email send skipped: EMAIL_USER and EMAIL_PASS are not configured in .env.`);
+    return {
+      sent: false,
+      error: 'EMAIL_USER and EMAIL_PASS are not configured in your .env file. Please add your Gmail address and 16-character Google App Password to .env so real emails can be sent to inboxes.'
+    };
+  }
+
+  const htmlContent = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #fffaf7; padding: 32px; border-radius: 16px; border: 1px solid #fed7aa;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h1 style="color: #ed5a4d; margin: 0; font-size: 28px; font-weight: 800;">Vibe Together 🎉</h1>
+        <p style="color: #832828; font-size: 14px; margin-top: 4px; font-weight: 600;">Password Reset Verification</p>
+      </div>
+
+      <p style="color: #333333; font-size: 15px;">Hello <strong>${userName}</strong>,</p>
+      <p style="color: #555555; font-size: 14px; line-height: 1.6;">
+        We received a request to reset the password for your <strong>Vibe Together</strong> account.
+        Here is your 6-digit OTP verification code:
+      </p>
+
+      <div style="text-align: center; margin: 26px 0;">
+        <div style="display: inline-block; background: #ed5a4d; color: #ffffff; font-size: 32px; font-weight: bold; letter-spacing: 10px; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 12px rgba(237, 90, 77, 0.3);">
+          ${otp}
+        </div>
+        <p style="color: #888888; font-size: 12px; margin-top: 10px;">⏳ This verification code expires in <strong>15 minutes</strong>.</p>
+      </div>
+
+      <div style="text-align: center; margin: 28px 0;">
+        <p style="color: #555555; font-size: 13px;">You can also click the button below to reset your password directly:</p>
+        <a href="${resetLink}" style="background: #2b130e; color: #ffffff; padding: 13px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+          🔑 Reset Password Directly
+        </a>
+      </div>
+
+      <hr style="border: none; border-top: 1px solid #fbd5c6; margin: 24px 0;">
+      <p style="color: #888888; font-size: 12px; text-align: center; margin: 0;">
+        If you did not request this verification code, please ignore this email. Your account remains completely safe.
+      </p>
+    </div>
+  `;
+
+  try {
+    const fromAddress = process.env.EMAIL_USER;
+    const info = await mailTransporter.sendMail({
+      from: `"Vibe Together" <${fromAddress}>`,
+      to: toEmail,
+      subject: `🔑 [Vibe Together] Your Password Reset OTP: ${otp}`,
+      html: htmlContent
+    });
+    console.log(`✅ Real email successfully sent to inbox: ${toEmail}. Message ID: ${info.messageId}`);
+    return { sent: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`⚠️ Failed to send real email to ${toEmail}: ${err.message}`);
+    return { sent: false, error: err.message };
+  }
 };
 
 // Middleware
@@ -372,6 +470,175 @@ app.post('/api/auth/login', async (req, res) => {
       return res.json({ success: true, message: 'Login successful!', user });
     }
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2b. Forgot Password - Generate & Send OTP + Reset Link
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { identifier } = req.body;
+    if (!identifier || !identifier.trim()) {
+      return res.status(400).json({ error: 'Please enter your registered Name or Email.' });
+    }
+
+    const cleanId = identifier.trim().toLowerCase();
+    let user = null;
+
+    if (isDbConnected() || isMongoConnected) {
+      user = await User.findOne({
+        $or: [
+          { name: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+          { email: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+        ]
+      });
+    } else {
+      user = inMemory.users.find(u => u.name.toLowerCase() === cleanId || u.email.toLowerCase() === cleanId);
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this Name or Email. Please check spelling or Sign Up first.' });
+    }
+
+    // Generate 6-digit OTP and Reset Token
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetToken = crypto.randomBytes(24).toString('hex');
+    const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    user.resetOtp = otp;
+    user.resetToken = resetToken;
+    user.resetTokenExpires = resetTokenExpires;
+
+    if (user.save) {
+      await user.save();
+    }
+
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const resetLink = `${protocol}://${host}/?token=${resetToken}`;
+
+    // Send real email via Nodemailer to user's real inbox
+    const mailResult = await sendPasswordResetEmail(user.email, user.name, otp, resetLink);
+
+    if (!mailResult.sent) {
+      return res.status(500).json({
+        error: mailResult.error || `Could not deliver email to ${user.email}. Please check your EMAIL_USER and EMAIL_PASS configuration in .env.`
+      });
+    }
+
+    // Mask user email for privacy (e.g. g***0@gmail.com)
+    const emailParts = user.email.split('@');
+    const local = emailParts[0];
+    const domain = emailParts[1] || '';
+    const maskedEmail = local.length > 2
+      ? `${local[0]}***${local[local.length - 1]}@${domain}`
+      : `${local[0]}***@${domain}`;
+
+    return res.json({
+      success: true,
+      message: `Verification OTP sent to ${maskedEmail}! Please check your email inbox and manually enter the 6-digit code.`,
+      email: maskedEmail,
+      name: user.name,
+      resetToken
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2c. Verify Reset Token
+app.post('/api/auth/verify-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Reset token is required.' });
+
+    let user = null;
+    if (isDbConnected() || isMongoConnected) {
+      user = await User.findOne({
+        resetToken: token,
+        resetTokenExpires: { $gt: new Date() }
+      });
+    } else {
+      user = inMemory.users.find(u => u.resetToken === token && u.resetTokenExpires && new Date(u.resetTokenExpires) > new Date());
+    }
+
+    if (!user) {
+      return res.status(400).json({ error: 'Reset link is invalid or has expired. Please request a new OTP.' });
+    }
+
+    return res.json({ success: true, name: user.name, email: user.email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2d. Reset Password (with OTP or Reset Token)
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { identifier, otp, token, newPassword } = req.body;
+    if (!newPassword || newPassword.trim().length < 4) {
+      return res.status(400).json({ error: 'New password must be at least 4 characters long.' });
+    }
+
+    let user = null;
+
+    if (token) {
+      if (isDbConnected() || isMongoConnected) {
+        user = await User.findOne({
+          resetToken: token,
+          resetTokenExpires: { $gt: new Date() }
+        });
+      } else {
+        user = inMemory.users.find(u => u.resetToken === token && u.resetTokenExpires && new Date(u.resetTokenExpires) > new Date());
+      }
+    } else if (identifier && otp) {
+      const cleanId = identifier.trim().toLowerCase();
+      const cleanOtp = otp.toString().trim();
+
+      if (isDbConnected() || isMongoConnected) {
+        user = await User.findOne({
+          $or: [
+            { name: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+            { email: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+          ],
+          resetOtp: cleanOtp,
+          resetTokenExpires: { $gt: new Date() }
+        });
+      } else {
+        user = inMemory.users.find(u => 
+          (u.name.toLowerCase() === cleanId || u.email.toLowerCase() === cleanId) &&
+          u.resetOtp === cleanOtp &&
+          u.resetTokenExpires &&
+          new Date(u.resetTokenExpires) > new Date()
+        );
+      }
+    } else {
+      return res.status(400).json({ error: 'Please provide either the 6-digit OTP or a valid reset token.' });
+    }
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired OTP/Reset Link. Please request a new OTP.' });
+    }
+
+    // Update password
+    user.password = newPassword.trim();
+    user.resetOtp = null;
+    user.resetToken = null;
+    user.resetTokenExpires = null;
+
+    if (user.save) {
+      await user.save();
+    }
+
+    console.log(`✅ Password successfully reset for user: ${user.name}`);
+    return res.json({
+      success: true,
+      message: 'Password reset successfully! You can now log in with your new password.',
+      user: { name: user.name, email: user.email }
+    });
+  } catch (err) {
+    console.error('Password reset error:', err);
     res.status(500).json({ error: err.message });
   }
 });
